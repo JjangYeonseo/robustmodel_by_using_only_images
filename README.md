@@ -1,111 +1,92 @@
-### robustmodel_by_using_only_images
+# robustmodel_by_using_only_images
 
 ---
 
-## 원본 데이터
+## ✅ 원본 데이터
+
+- **날씨 조건 목록**:  
+  `['DD', 'DN', 'HD', 'ND', 'NN', 'NR', 'NS', 'RD', 'RN', 'SD']`
+
+- **클래스 목록 및 빈도수:**
+
+| 클래스           | 개수 |   | 클래스           | 개수 |
+|------------------|------|---|------------------|------|
+| static           | 4525 |   | sky              | 475  |
+| car              | 1454 |   | pole             | 451  |
+| vegetation       | 1410 |   | building         | 414  |
+| guard rail       | 793  |   | truck            | 384  |
+| dynamic          | 715  |   | terrain          | 321  |
+| traffic sign     | 707  |   | wall             | 244  |
+| road             | 542  |   | sidewalk         | 170  |
+| ground           | 487  |   | traffic light    | 163  |
+| fence            | 137  |   | bus              | 64   |
+| tunnel           | 49   |   | bridge           | 39   |
+| person           | 34   |   | cargroup         | 21   |
+| parking          | 8    |   | rider            | 2    |
+| bicycle          | 2    |   | trailer          | 1    |
+| motorcycle       | 1    |   |                  |      |
 
 ---
 
-#✅ 날씨 조건 목록: ['DD', 'DN', 'HD', 'ND', 'NN', 'NR', 'NS', 'RD', 'RN', 'SD']
-#✅ 클래스 목록 및 빈도수:
-  static: 4525개
-  car: 1454개
-  vegetation: 1410개
-  guard rail: 793개
-  dynamic: 715개
-  traffic sign: 707개
-  road: 542개
-  ground: 487개
-  sky: 475개
-  pole: 451개
-  building: 414개
-  truck: 384개
-  terrain: 321개
-  wall: 244개
-  sidewalk: 170개
-  traffic light: 163개
-  fence: 137개
-  bus: 64개
-  tunnel: 49개
-  bridge: 39개
-  person: 34개
-  cargroup: 21개
-  parking: 8개
-  rider: 2개
-  bicycle: 2개
-  trailer: 1개
-  motorcycle: 1개
+## 📈 증강 데이터 설정
+
+### 🎯 균형 증강 대상 (500개 미만 클래스 → 500까지 보충)
+
+- `sky`: +25  
+- `truck`: +116  
+- `ground`: +13  
+- `building`: +86  
+- `sidewalk`: +330  
+- `terrain`: +179  
+- `wall`: +256  
+- `traffic light`: +337  
+- `bridge`: +461  
+- `fence`: +363  
+- `pole`: +49  
+- `tunnel`: +451  
+- `bus`: +436  
+- `person`: +466  
+- `parking`: +492  
+- `cargroup`: +479  
+- `rider`: +498  
+- `bicycle`: +498  
+- `trailer`: +499  
+- `motorcycle`: +499  
+
+### 💪 전략 증강 대상 (강건성 향상 목적, 500 이상 클래스 중 일부 10% 추가 증강)
+
+- `static`: +452  
+- `road`: +54  
+- `vegetation`: +141  
+- `guard rail`: +79  
+- `car`: +145  
+- `traffic sign`: +70  
+- `dynamic`: +71  
 
 ---
 
-## 증강 적용한 데이터
+## ✅ 최종 결과
+
+- 총 **증강 이미지 수**: `5390`개
+
+- **최종 클래스 분포 (원본 + 증강 포함)**:
+
+| 클래스           | 개수 |   | 클래스           | 개수 |
+|------------------|------|---|------------------|------|
+| static           | 4947 |   | traffic light    | 520  |
+| car              | 1566 |   | sidewalk         | 516  |
+| vegetation       | 1515 |   | truck            | 515  |
+| guard rail       | 849  |   | fence            | 510  |
+| dynamic          | 758  |   | bus              | 508  |
+| traffic sign     | 752  |   | person           | 503  |
+| road             | 581  |   | cargroup         | 502  |
+| sky              | 539  |   | tunnel           | 501  |
+| ground           | 538  |   | bridge           | 500  |
+| building         | 531  |   | parking          | 500  |
+| pole             | 531  |   | rider            | 500  |
+| terrain          | 526  |   | bicycle          | 500  |
+| wall             | 524  |   | trailer          | 500  |
+|                  |      |   | motorcycle       | 500  |
 
 ---
 
-# 🎯 균형 증강 대상:
-  sky: +25개 필요
-  truck: +116개 필요
-  ground: +13개 필요
-  building: +86개 필요
-  sidewalk: +330개 필요
-  terrain: +179개 필요
-  wall: +256개 필요
-  traffic light: +337개 필요
-  bridge: +461개 필요
-  fence: +363개 필요
-  pole: +49개 필요
-  tunnel: +451개 필요
-  bus: +436개 필요
-  person: +466개 필요
-  parking: +492개 필요
-  cargroup: +479개 필요
-  rider: +498개 필요
-  bicycle: +498개 필요
-  trailer: +499개 필요
-  motorcycle: +499개 필요
-
----
-
-# 💪 전략 증강 대상 (강건성 강화):
-  static: +452개 추가
-  road: +54개 추가
-  vegetation: +141개 추가
-  guard rail: +79개 추가
-  car: +145개 추가
-  traffic sign: +70개 추가
-  dynamic: +71개 추가
-
----
-
-# ✅ 총 증강 이미지 수: 5390개
-
----
-
-# 📊 최종 클래스 분포 (원본 + 증강):
-  static: 4947개
-  car: 1566개
-  vegetation: 1515개
-  guard rail: 849개
-  dynamic: 758개
-  traffic sign: 752개
-  road: 581개
-  sky: 539개
-  ground: 538개
-  building: 531개
-  pole: 531개
-  terrain: 526개
-  wall: 524개
-  traffic light: 520개
-  sidewalk: 516개
-  truck: 515개
-  fence: 510개
-  bus: 508개
-  person: 503개
-  cargroup: 502개
-  tunnel: 501개
-  bridge: 500개
-  parking: 500개
-  rider: 500개
-  bicycle: 500개
-  trailer: 500개
-  motorcycle: 500개
