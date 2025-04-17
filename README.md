@@ -84,32 +84,4 @@
 
 ---
 
-
-클래스 | 개수
-static | 4525
-car | 1454
-vegetation | 1410
-person | 1195
-dynamic | 1009
-tunnel | 946
-bus | 838
-cargroup | 799
-guard rail | 793
-pole | 787
-bridge | 736
-traffic sign | 707
-wall | 699
-building | 689
-ground | 580
-sky | 559
-truck | 551
-road | 542
-fence | 466
-parking | 453
-sidewalk | 452
-terrain | 394
-traffic light | 241
-bicycle | 186
-rider | 154
-motorcycle | 101
-trailer | 95
+### 📊 전체 클래스 분포 (원본 + 증강 포함) | 클래스 | 총 개수 | |----------------|--------:| | static | 4525개 | | car | 1454개 | | vegetation | 1410개 | | person | 1195개 | | dynamic | 1009개 | | tunnel | 946개 | | bus | 838개 | | cargroup | 799개 | | guard rail | 793개 | | pole | 787개 | | bridge | 736개 | | traffic sign | 707개 | | wall | 699개 | | building | 689개 | | ground | 580개 | | sky | 559개 | | truck | 551개 | | road | 542개 | | fence | 466개 | | parking | 453개 | | sidewalk | 452개 | | terrain | 394개 | | traffic light | 241개 | | bicycle | 186개 | | rider | 154개 | | motorcycle | 101개 | | trailer | 95개 |
