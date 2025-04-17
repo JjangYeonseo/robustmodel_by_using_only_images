@@ -10,6 +10,7 @@
 
 import os
 import json
+import csv
 import cv2
 import numpy as np
 import uuid
@@ -24,6 +25,7 @@ image_root = r"C:\Users\dadab\Desktop\Sample\01.원천데이터"
 label_root = r"C:\Users\dadab\Desktop\Sample\02.라벨링데이터"
 save_img_root = r"C:\Users\dadab\Desktop\Sample\augmented\images"
 save_label_root = r"C:\Users\dadab\Desktop\Sample\augmented\labels"
+csv_output_path = r"C:\Users\dadab\Desktop\Sample\weather_class_distribution.csv"
 
 os.makedirs(save_img_root, exist_ok=True)
 os.makedirs(save_label_root, exist_ok=True)
@@ -54,9 +56,9 @@ def extract_weather_code(file_name):
     match = re.search(r'_(DD|DN|HD|ND|NN|NR|NS|RD|RN|SD)_', file_name)
     return match.group(1) if match else None
 
-# === 원본 데이터 수집 ===
-weather_class_counter = defaultdict(Counter)
-weather_image_infos = defaultdict(list)
+# === 데이터 수집 ===
+all_image_infos = []
+class_counter = Counter()
 
 for clip_folder in os.listdir(label_root):
     label_clip_path = os.path.join(label_root, clip_folder, "Camera", "Camera_Front")
@@ -70,7 +72,6 @@ for clip_folder in os.listdir(label_root):
 
         label_path = os.path.join(label_clip_path, file_name)
         image_path = os.path.join(image_clip_path, file_name.replace(".json", ".jpg"))
-
         weather = extract_weather_code(file_name)
         if not weather:
             continue
@@ -78,9 +79,9 @@ for clip_folder in os.listdir(label_root):
         with open(label_path, 'r', encoding='utf-8') as f:
             data = json.load(f)
             labels = [s["label"] for s in data.get("shapes", [])]
-            weather_class_counter[weather].update(labels)
+            class_counter.update(labels)
 
-        weather_image_infos[weather].append({
+        all_image_infos.append({
             "labels": labels,
             "label_path": label_path,
             "image_path": image_path,
@@ -88,109 +89,126 @@ for clip_folder in os.listdir(label_root):
             "weather": weather
         })
 
-# === 증강 타겟 설정 ===
-TARGET_PER_WEATHER = 700
-aug_plan = defaultdict(lambda: defaultdict(int))
+# === 증강 대상 정의 ===
+TARGET_PER_CLASS = 500
+STRATEGIC_AUG_PER_CLASS = 50
+class_to_images = defaultdict(list)
 
-for weather, infos in weather_image_infos.items():
-    current = len(infos)
-    needed = max(0, TARGET_PER_WEATHER - current)
-    if needed == 0:
-        continue
+for info in all_image_infos:
+    for cls in set(info["labels"]):
+        class_to_images[cls].append(info)
 
-    class_counts = weather_class_counter[weather]
-    sorted_classes = sorted(class_counts.items(), key=lambda x: x[1])
-    class_list = [cls for cls, _ in sorted_classes[:7]]
-    for i in range(needed):
-        target_class = random.choice(class_list)
-        aug_plan[weather][target_class] += 1
-
-# === 증강 수행 ===
 aug_idx = 0
 aug_labels = []
 
-for weather in aug_plan:
-    print(f"\n🌦️ {weather} 조건 증강 중...")
-    for cls in aug_plan[weather]:
-        count = aug_plan[weather][cls]
-        infos = [info for info in weather_image_infos[weather] if cls in info["labels"]]
-        print(f"  ▶ {cls}: {count}장")
-        for _ in range(count):
-            info = random.choice(infos)
-            transform, simulated_conditions = get_random_transform()
+# === 증강 함수 ===
+def augment_image(info, target_class):
+    global aug_idx, aug_labels
+    transform, simulated_conditions = get_random_transform()
 
-            image = cv2.imdecode(np.fromfile(info["image_path"], np.uint8), cv2.IMREAD_COLOR)
-            if image is None:
-                continue
+    image = cv2.imdecode(np.fromfile(info["image_path"], np.uint8), cv2.IMREAD_COLOR)
+    if image is None:
+        return False
 
-            with open(info["label_path"], 'r', encoding='utf-8') as f:
-                data = json.load(f)
-            original_shapes = data.get("shapes", [])
+    with open(info["label_path"], 'r', encoding='utf-8') as f:
+        data = json.load(f)
+    original_shapes = data.get("shapes", [])
 
-            keypoints = []
-            point_map = {}
-            pt_counter = 0
-            for i, shape in enumerate(original_shapes):
-                points = shape.get("points", [])
-                point_map[i] = []
-                for pt in points:
-                    keypoints.append(tuple(pt))
-                    point_map[i].append(pt_counter)
-                    pt_counter += 1
+    keypoints = []
+    point_map = {}
+    pt_counter = 0
+    for i, shape in enumerate(original_shapes):
+        points = shape.get("points", [])
+        point_map[i] = []
+        for pt in points:
+            keypoints.append(tuple(pt))
+            point_map[i].append(pt_counter)
+            pt_counter += 1
 
-            augmented = transform(image=image, keypoints=keypoints)
-            aug_image = augmented["image"]
-            aug_kps = augmented["keypoints"]
+    augmented = transform(image=image, keypoints=keypoints)
+    aug_image = augmented["image"]
+    aug_kps = augmented["keypoints"]
 
-            aug_shapes = []
-            for i, shape in enumerate(original_shapes):
-                label = shape.get("label")
-                if label != cls:
-                    continue
-                shape_type = shape.get("shape_type", "polygon")
-                indices = point_map.get(i, [])
-                aug_pts = [aug_kps[idx] for idx in indices if idx < len(aug_kps)]
-                if not aug_pts:
-                    continue
-                aug_shapes.append({
-                    "label": label,
-                    "points": aug_pts,
-                    "group_id": None,
-                    "shape_type": shape_type,
-                    "flags": {},
-                    "object_id": None
-                })
+    aug_shapes = []
+    for i, shape in enumerate(original_shapes):
+        label = shape.get("label")
+        if label != target_class:
+            continue
+        shape_type = shape.get("shape_type", "polygon")
+        indices = point_map.get(i, [])
+        aug_pts = [aug_kps[idx] for idx in indices if idx < len(aug_kps)]
+        if not aug_pts:
+            continue
+        aug_shapes.append({
+            "label": label,
+            "points": aug_pts,
+            "group_id": None,
+            "shape_type": shape_type,
+            "flags": {},
+            "object_id": None
+        })
 
-            if not aug_shapes:
-                continue
+    if not aug_shapes:
+        return False
 
-            new_id = str(uuid.uuid4())[:8]
-            new_img_name = f"aug_{aug_idx}_{new_id}.jpg"
-            new_json_name = new_img_name.replace('.jpg', '.json')
+    new_id = str(uuid.uuid4())[:8]
+    new_img_name = f"aug_{aug_idx}_{new_id}.jpg"
+    new_json_name = new_img_name.replace('.jpg', '.json')
+    save_img_path = os.path.join(save_img_root, new_img_name)
+    cv2.imencode('.jpg', aug_image)[1].tofile(save_img_path)
 
-            save_img_path = os.path.join(save_img_root, new_img_name)
-            cv2.imencode('.jpg', aug_image)[1].tofile(save_img_path)
+    aug_label = {
+        "imagePath": new_img_name,
+        "imageHeight": aug_image.shape[0],
+        "imageWidth": aug_image.shape[1],
+        "weather_from": info["weather"],
+        "simulated_weather": simulated_conditions,
+        "shapes": aug_shapes
+    }
+    save_json_path = os.path.join(save_label_root, new_json_name)
+    with open(save_json_path, 'w', encoding='utf-8') as jf:
+        json.dump(aug_label, jf, ensure_ascii=False, indent=4)
 
-            aug_label = {
-                "imagePath": new_img_name,
-                "imageHeight": aug_image.shape[0],
-                "imageWidth": aug_image.shape[1],
-                "weather_from": info["weather"],
-                "simulated_weather": simulated_conditions,
-                "shapes": aug_shapes
-            }
-            save_json_path = os.path.join(save_label_root, new_json_name)
-            with open(save_json_path, 'w', encoding='utf-8') as jf:
-                json.dump(aug_label, jf, ensure_ascii=False, indent=4)
+    aug_labels.extend([s["label"] for s in aug_shapes])
+    aug_idx += 1
+    return True
 
-            aug_labels.extend([s["label"] for s in aug_shapes])
-            aug_idx += 1
+# === 균형 증강 ===
+for cls in class_counter:
+    if class_counter[cls] >= TARGET_PER_CLASS:
+        continue
+    needed = TARGET_PER_CLASS - class_counter[cls]
+    infos = class_to_images[cls]
+    print(f"⚖️ 균형 증강 중: {cls} → {needed}개")
+    generated = 0
+    while generated < needed:
+        info = random.choice(infos)
+        if augment_image(info, cls):
+            generated += 1
 
-print(f"\n✅ 다차원 증강 완료! 총 생성 이미지 수: {aug_idx}개")
+# === 전략 증강 ===
+for cls in class_counter:
+    if class_counter[cls] < TARGET_PER_CLASS:
+        continue
+    infos = class_to_images[cls]
+    print(f"💪 전략 증강 중: {cls} → {STRATEGIC_AUG_PER_CLASS}개")
+    generated = 0
+    while generated < STRATEGIC_AUG_PER_CLASS:
+        info = random.choice(infos)
+        if augment_image(info, cls):
+            generated += 1
 
-# === 날씨별 + 시뮬레이션 조건 포함한 클래스 분포 분석 ===
-print("\n🌦️ 복합 날씨 조건별 클래스 분포 분석:")
-combined_weather_counter = defaultdict(Counter)
+# === 최종 통계 출력 ===
+print(f"\n✅ 최종 증강 완료! 총 생성 이미지 수: {aug_idx}개")
+
+final_counter = class_counter.copy()
+final_counter.update(aug_labels)
+print("\n📊 최종 클래스 분포 (원본 + 증강 포함):")
+for cls, count in final_counter.most_common():
+    print(f"  {cls:15s}: {count}개")
+
+# === 날씨 조건별 클래스 분포 분석 및 저장 ===
+weather_class_counter = defaultdict(Counter)
 label_dirs = [label_root, save_label_root]
 
 for label_path in label_dirs:
@@ -202,11 +220,26 @@ for label_path in label_dirs:
                 data = json.load(f)
                 labels = [s["label"] for s in data.get("shapes", [])]
                 weather = data.get("weather_from") or extract_weather_code(data.get("imagePath", file))
-                sim = data.get("simulated_weather", [])
-                weather_full = f"{weather}+{'+'.join(sim)}" if sim else weather
-                combined_weather_counter[weather_full].update(labels)
+                if weather in weather_codes:
+                    weather_class_counter[weather].update(labels)
 
-for weather_full in sorted(combined_weather_counter):
-    print(f"\n☁️ {weather_full}:")
-    for cls, count in combined_weather_counter[weather_full].most_common():
+# 출력
+print("\n🌦️ 날씨 조건별 클래스 분포:")
+for weather in sorted(weather_class_counter):
+    print(f"☁️ {weather}:")
+    for cls, count in weather_class_counter[weather].most_common():
         print(f"  {cls:15s}: {count}")
+    print()
+
+# CSV 저장
+with open(csv_output_path, mode='w', newline='', encoding='utf-8-sig') as f:
+    writer = csv.writer(f)
+    header = ["Weather"] + sorted(final_counter.keys())
+    writer.writerow(header)
+    for weather in sorted(weather_class_counter):
+        row = [weather]
+        for cls in sorted(final_counter.keys()):
+            row.append(weather_class_counter[weather].get(cls, 0))
+        writer.writerow(row)
+
+print(f"\n📁 CSV 저장 완료: {csv_output_path}")
