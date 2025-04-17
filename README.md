@@ -40,44 +40,40 @@
 
 ---
 
----
-
 ## ✅ 증강 요약 결과
 
-- 총 증강 이미지 수: **6003장**
+- 총 증강 이미지 수: **6883장**
 
+---
 
-### 📊 최종 클래스 분포 (원본 + 증강)
+### 📊 최종 클래스 분포 (원본 + 증강 포함)
 
 | 클래스         | 총 개수 |
 |----------------|--------:|
-| static         | 4525개 |
-| car            | 1454개 |
-| vegetation     | 1410개 |
-| guard rail     | 793개  |
-| traffic sign   | 707개  |
-| dynamic        | 1009개  |
-| road           | 542개  |
-| sky            | 559개  |
-| ground         | 580개  |
-| pole           | 787개  |
-| terrain        | 394개  |
-| truck          | 551개  |
-| building       | 689개  |
-| sidewalk       | 452개  |
-| wall           | 699개  |
-| traffic light  | 241개  |
-| fence          | 466개  |
-| bridge         | 736개  |
-| tunnel         | 946개  |
-| person         | 1195개  |
-| cargroup       | 799개  |
-| bus            | 838개  |
-| parking        | 453개  |
-| rider          | 154개  |
-| bicycle        | 186개  |
-| trailer        | 95개  |
-| motorcycle     | 101개  |
-
----
-
+| static         | 5032개  |
+| car            | 1646개  |
+| vegetation     | 1571개  |
+| dynamic        | 1023개  |
+| traffic light  | 952개   |
+| guard rail     | 884개   |
+| traffic sign   | 822개   |
+| person         | 749개   |
+| sidewalk       | 712개   |
+| cargroup       | 705개   |
+| fence          | 651개   |
+| wall           | 642개   |
+| building       | 620개   |
+| terrain        | 597개   |
+| truck          | 595개   |
+| road           | 593개   |
+| bridge         | 584개   |
+| tunnel         | 579개   |
+| bus            | 569개   |
+| pole           | 568개   |
+| ground         | 501개   |
+| sky            | 500개   |
+| parking        | 500개   |
+| rider          | 500개   |
+| bicycle        | 500개   |
+| trailer        | 500개   |
+| motorcycle     | 500개   |
