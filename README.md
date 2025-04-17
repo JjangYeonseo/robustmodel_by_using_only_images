@@ -46,42 +46,38 @@
 
 - 총 증강 이미지 수: **6003장**
 
----
-
-
 
 ### 📊 최종 클래스 분포 (원본 + 증강)
 
 | 클래스         | 총 개수 |
 |----------------|--------:|
-| static         | 4905개 |
-| car            | 1559개 |
-| vegetation     | 1525개 |
-| guard rail     | 873개  |
-| traffic sign   | 766개  |
-| dynamic        | 747개  |
-| road           | 591개  |
-| sky            | 544개  |
-| ground         | 543개  |
-| pole           | 541개  |
-| terrain        | 536개  |
-| truck          | 530개  |
-| building       | 524개  |
-| sidewalk       | 515개  |
-| wall           | 512개  |
-| traffic light  | 512개  |
-| fence          | 511개  |
-| bridge         | 505개  |
-| tunnel         | 503개  |
-| person         | 503개  |
-| cargroup       | 502개  |
-| bus            | 501개  |
-| parking        | 500개  |
-| rider          | 500개  |
-| bicycle        | 500개  |
-| trailer        | 500개  |
-| motorcycle     | 500개  |
+| static         | 4525개 |
+| car            | 1454개 |
+| vegetation     | 1410개 |
+| guard rail     | 793개  |
+| traffic sign   | 707개  |
+| dynamic        | 1009개  |
+| road           | 542개  |
+| sky            | 559개  |
+| ground         | 580개  |
+| pole           | 787개  |
+| terrain        | 394개  |
+| truck          | 551개  |
+| building       | 689개  |
+| sidewalk       | 452개  |
+| wall           | 699개  |
+| traffic light  | 241개  |
+| fence          | 466개  |
+| bridge         | 736개  |
+| tunnel         | 946개  |
+| person         | 1195개  |
+| cargroup       | 799개  |
+| bus            | 838개  |
+| parking        | 453개  |
+| rider          | 154개  |
+| bicycle        | 186개  |
+| trailer        | 95개  |
+| motorcycle     | 101개  |
 
 ---
 
-### 📊 전체 클래스 분포 (원본 + 증강 포함) | 클래스 | 총 개수 | |----------------|--------:| | static | 4525개 | | car | 1454개 | | vegetation | 1410개 | | person | 1195개 | | dynamic | 1009개 | | tunnel | 946개 | | bus | 838개 | | cargroup | 799개 | | guard rail | 793개 | | pole | 787개 | | bridge | 736개 | | traffic sign | 707개 | | wall | 699개 | | building | 689개 | | ground | 580개 | | sky | 559개 | | truck | 551개 | | road | 542개 | | fence | 466개 | | parking | 453개 | | sidewalk | 452개 | | terrain | 394개 | | traffic light | 241개 | | bicycle | 186개 | | rider | 154개 | | motorcycle | 101개 | | trailer | 95개 |
