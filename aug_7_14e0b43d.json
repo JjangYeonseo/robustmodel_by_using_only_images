@@ -1,0 +1,34 @@
+{
+    "imagePath": "aug_7_14e0b43d.jpg",
+    "imageHeight": 1080,
+    "imageWidth": 1920,
+    "weather_from": "NN",
+    "simulated_weather": [],
+    "shapes": [
+        {
+            "label": "sky",
+            "points": [
+                [
+                    106.75215148925781,
+                    659.559326171875
+                ],
+                [
+                    92.61717987060547,
+                    117.9229736328125
+                ],
+                [
+                    107.37413787841797,
+                    569.5182495117188
+                ],
+                [
+                    1285.3289794921875,
+                    574.9730224609375
+                ]
+            ],
+            "group_id": null,
+            "shape_type": "polygon",
+            "flags": {},
+            "object_id": null
+        }
+    ]
+}

@@ -1,0 +1,37 @@
+{
+    "imagePath": "aug_6_2e9a6bb1.jpg",
+    "imageHeight": 1080,
+    "imageWidth": 1920,
+    "weather_from": "RD",
+    "simulated_weather": [
+        "rain",
+        "snow"
+    ],
+    "shapes": [
+        {
+            "label": "sky",
+            "points": [
+                [
+                    0.0,
+                    309.0
+                ],
+                [
+                    1919.0,
+                    253.0
+                ],
+                [
+                    1919.0,
+                    0.0
+                ],
+                [
+                    0.0,
+                    0.0
+                ]
+            ],
+            "group_id": null,
+            "shape_type": "polygon",
+            "flags": {},
+            "object_id": null
+        }
+    ]
+}

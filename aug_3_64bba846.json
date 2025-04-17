@@ -1,0 +1,37 @@
+{
+    "imagePath": "aug_3_64bba846.jpg",
+    "imageHeight": 1080,
+    "imageWidth": 1920,
+    "weather_from": "RD",
+    "simulated_weather": [
+        "rain",
+        "snow"
+    ],
+    "shapes": [
+        {
+            "label": "sky",
+            "points": [
+                [
+                    1663.7247314453125,
+                    72.88873291015625
+                ],
+                [
+                    1533.2515869140625,
+                    87.25640869140625
+                ],
+                [
+                    1446.959716796875,
+                    73.53913116455078
+                ],
+                [
+                    1400.410888671875,
+                    58.09660339355469
+                ]
+            ],
+            "group_id": null,
+            "shape_type": "polygon",
+            "flags": {},
+            "object_id": null
+        }
+    ]
+}

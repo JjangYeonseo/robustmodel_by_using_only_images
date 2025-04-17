@@ -1,0 +1,36 @@
+{
+    "imagePath": "aug_8_1dc9bbed.jpg",
+    "imageHeight": 1080,
+    "imageWidth": 1920,
+    "weather_from": "SD",
+    "simulated_weather": [
+        "rain"
+    ],
+    "shapes": [
+        {
+            "label": "sky",
+            "points": [
+                [
+                    0.0,
+                    544.0
+                ],
+                [
+                    1919.0,
+                    537.0
+                ],
+                [
+                    1919.0,
+                    0.0
+                ],
+                [
+                    0.0,
+                    0.0
+                ]
+            ],
+            "group_id": null,
+            "shape_type": "polygon",
+            "flags": {},
+            "object_id": null
+        }
+    ]
+}
