@@ -3,6 +3,7 @@
 # keypoint 기반으로 polygon 좌표 변환까지 동기화함
 # ✅ 클래스 500 미만 → 정확히 500으로 맞춰 증강 (너무 적은 클래스의 경우 학습이 제대로 진행되지 않기 때문에 최소 500개 확보를 위함)
 # ✅ 클래스 500 이상 → 10% 전략 증강으로 강건성 향상 (다양한 환경에서 적용 가능하도록 10% 증강)
+# ✅ 날씨별 클래스 불균형 해소를 위해 개수 불균형 해소 후 기상 조건에 따른 증강 추가 실행하는 다차원 증강 적
 # ✅ 이미지 및 라벨 동기화 (이미지와 더불어 라벨도 함께 동기화함)
 # ✅ 증강 시 매번 랜덤 방식 사용 (학습 이미지 자체의 부족으로 동일 이미지를 반복적으로 증강하는 중복 증강이 이루어질 수밖에 없음 -> 동일한 이미지를 여러 번 증강할 경우 전부 다른 방식으로 증강될 수 있도록 진행함)
 # ✅ 날씨 추적 가능하도록 증강된 json 파일에 메타 데이터 기록  (weather_from: 원본 파일에서 추출, simulated_weather: 어떤 날씨 스타일을 적용했는지 기록)
@@ -13,23 +14,15 @@ import cv2
 import numpy as np
 import uuid
 from tqdm import tqdm
-from collections import Counter, defaultdict
+from collections import defaultdict, Counter
 import albumentations as A
 import random
 import re
 
 # === 경로 설정 ===
-
-# 원천 이미지 경로
 image_root = r"C:\Users\dadab\Desktop\Sample\01.원천데이터"
-
-# 원본 라벨링 데이터 경로
 label_root = r"C:\Users\dadab\Desktop\Sample\02.라벨링데이터"
-
-# 증강 이미지 저장 경로
 save_img_root = r"C:\Users\dadab\Desktop\Sample\augmented\images"
-
-# 증강 라벨 저장 경로
 save_label_root = r"C:\Users\dadab\Desktop\Sample\augmented\labels"
 
 os.makedirs(save_img_root, exist_ok=True)
@@ -62,8 +55,8 @@ def extract_weather_code(file_name):
     return match.group(1) if match else None
 
 # === 원본 데이터 수집 ===
-class_counter = Counter()
-image_infos = []
+weather_class_counter = defaultdict(Counter)
+weather_image_infos = defaultdict(list)
 
 for clip_folder in os.listdir(label_root):
     label_clip_path = os.path.join(label_root, clip_folder, "Camera", "Camera_Front")
@@ -85,9 +78,9 @@ for clip_folder in os.listdir(label_root):
         with open(label_path, 'r', encoding='utf-8') as f:
             data = json.load(f)
             labels = [s["label"] for s in data.get("shapes", [])]
-            class_counter.update(labels)
+            weather_class_counter[weather].update(labels)
 
-        image_infos.append({
+        weather_image_infos[weather].append({
             "labels": labels,
             "label_path": label_path,
             "image_path": image_path,
@@ -95,108 +88,108 @@ for clip_folder in os.listdir(label_root):
             "weather": weather
         })
 
-# === 증강 파라미터 ===
-TARGET_MIN = 500
-STRATEGIC_AUG_PERCENT = 0.1
-underrepresented = {cls: TARGET_MIN - count for cls, count in class_counter.items() if count < TARGET_MIN}
-well_represented = {cls: int(count * STRATEGIC_AUG_PERCENT) for cls, count in class_counter.items() if count >= TARGET_MIN}
+# === 증강 타겟 설정 ===
+TARGET_PER_WEATHER = 500
+aug_plan = defaultdict(lambda: defaultdict(int))
 
-class_to_images = defaultdict(list)
-for info in image_infos:
-    for cls in set(info["labels"]):
-        class_to_images[cls].append(info)
+for weather, infos in weather_image_infos.items():
+    current = len(infos)
+    needed = max(0, TARGET_PER_WEATHER - current)
+    if needed == 0:
+        continue
 
+    # 클래스 부족 순으로 증강 비중 배정
+    class_counts = weather_class_counter[weather]
+    sorted_classes = sorted(class_counts.items(), key=lambda x: x[1])
+
+    class_list = [cls for cls, _ in sorted_classes[:5]]  # 상위 부족 클래스 5개에 집중
+    for i in range(needed):
+        target_class = random.choice(class_list)
+        aug_plan[weather][target_class] += 1
+
+# === 증강 수행 ===
 aug_idx = 0
 aug_labels = []
 
-def augment_image(info, label_filter=None):
-    global aug_idx, aug_labels
-    transform, simulated_conditions = get_random_transform()
+for weather in aug_plan:
+    print(f"\n🌦️ {weather} 조건 증강 중...")
+    for cls in aug_plan[weather]:
+        count = aug_plan[weather][cls]
+        infos = [info for info in weather_image_infos[weather] if cls in info["labels"]]
+        print(f"  ▶ {cls}: {count}장")
+        for _ in range(count):
+            info = random.choice(infos)
+            transform, simulated_conditions = get_random_transform()
 
-    image = cv2.imdecode(np.fromfile(info["image_path"], np.uint8), cv2.IMREAD_COLOR)
-    if image is None:
-        return 0
+            image = cv2.imdecode(np.fromfile(info["image_path"], np.uint8), cv2.IMREAD_COLOR)
+            if image is None:
+                continue
 
-    with open(info["label_path"], 'r', encoding='utf-8') as f:
-        data = json.load(f)
-    original_shapes = data.get("shapes", [])
+            with open(info["label_path"], 'r', encoding='utf-8') as f:
+                data = json.load(f)
+            original_shapes = data.get("shapes", [])
 
-    keypoints = []
-    point_map = {}
-    pt_counter = 0
-    for i, shape in enumerate(original_shapes):
-        points = shape.get("points", [])
-        point_map[i] = []
-        for pt in points:
-            keypoints.append(tuple(pt))
-            point_map[i].append(pt_counter)
-            pt_counter += 1
+            keypoints = []
+            point_map = {}
+            pt_counter = 0
+            for i, shape in enumerate(original_shapes):
+                points = shape.get("points", [])
+                point_map[i] = []
+                for pt in points:
+                    keypoints.append(tuple(pt))
+                    point_map[i].append(pt_counter)
+                    pt_counter += 1
 
-    augmented = transform(image=image, keypoints=keypoints)
-    aug_image = augmented["image"]
-    aug_kps = augmented["keypoints"]
+            augmented = transform(image=image, keypoints=keypoints)
+            aug_image = augmented["image"]
+            aug_kps = augmented["keypoints"]
 
-    aug_shapes = []
-    for i, shape in enumerate(original_shapes):
-        label = shape.get("label")
-        if label_filter and label not in label_filter:
-            continue
-        shape_type = shape.get("shape_type", "polygon")
-        indices = point_map.get(i, [])
-        aug_pts = [aug_kps[idx] for idx in indices if idx < len(aug_kps)]
-        if not aug_pts:
-            continue
-        aug_shapes.append({
-            "label": label,
-            "points": aug_pts,
-            "group_id": None,
-            "shape_type": shape_type,
-            "flags": {},
-            "object_id": None
-        })
+            aug_shapes = []
+            for i, shape in enumerate(original_shapes):
+                label = shape.get("label")
+                if label != cls:
+                    continue
+                shape_type = shape.get("shape_type", "polygon")
+                indices = point_map.get(i, [])
+                aug_pts = [aug_kps[idx] for idx in indices if idx < len(aug_kps)]
+                if not aug_pts:
+                    continue
+                aug_shapes.append({
+                    "label": label,
+                    "points": aug_pts,
+                    "group_id": None,
+                    "shape_type": shape_type,
+                    "flags": {},
+                    "object_id": None
+                })
 
-    if not aug_shapes:
-        return 0
+            if not aug_shapes:
+                continue
 
-    new_id = str(uuid.uuid4())[:8]
-    new_img_name = f"aug_{aug_idx}_{new_id}.jpg"
-    new_json_name = new_img_name.replace('.jpg', '.json')
+            new_id = str(uuid.uuid4())[:8]
+            new_img_name = f"aug_{aug_idx}_{new_id}.jpg"
+            new_json_name = new_img_name.replace('.jpg', '.json')
 
-    save_img_path = os.path.join(save_img_root, new_img_name)
-    cv2.imencode('.jpg', aug_image)[1].tofile(save_img_path)
+            save_img_path = os.path.join(save_img_root, new_img_name)
+            cv2.imencode('.jpg', aug_image)[1].tofile(save_img_path)
 
-    aug_label = {
-        "imagePath": new_img_name,
-        "imageHeight": aug_image.shape[0],
-        "imageWidth": aug_image.shape[1],
-        "weather_from": info["weather"],
-        "simulated_weather": simulated_conditions,
-        "shapes": aug_shapes
-    }
-    save_json_path = os.path.join(save_label_root, new_json_name)
-    with open(save_json_path, 'w', encoding='utf-8') as jf:
-        json.dump(aug_label, jf, ensure_ascii=False, indent=4)
+            aug_label = {
+                "imagePath": new_img_name,
+                "imageHeight": aug_image.shape[0],
+                "imageWidth": aug_image.shape[1],
+                "weather_from": info["weather"],
+                "simulated_weather": simulated_conditions,
+                "shapes": aug_shapes
+            }
+            save_json_path = os.path.join(save_label_root, new_json_name)
+            with open(save_json_path, 'w', encoding='utf-8') as jf:
+                json.dump(aug_label, jf, ensure_ascii=False, indent=4)
 
-    aug_labels.extend([s["label"] for s in aug_shapes])
-    aug_idx += 1
-    return sum(1 for s in aug_shapes if not label_filter or s["label"] in label_filter)
+            aug_labels.extend([s["label"] for s in aug_shapes])
+            aug_idx += 1
 
-# 증강 수행 (균형 + 전략)
-for cls, needed in underrepresented.items():
-    candidates = class_to_images[cls]
-    generated = 0
-    while generated < needed:
-        info = random.choice(candidates)
-        generated += augment_image(info, label_filter={cls})
+print(f"\n✅ 다차원 증강 완료! 총 생성 이미지 수: {aug_idx}개")
 
-for cls, extra in well_represented.items():
-    candidates = class_to_images[cls]
-    generated = 0
-    while generated < extra:
-        info = random.choice(candidates)
-        generated += augment_image(info)
-
-print("\n✅ 증강 완료!")
 
 # === 분석 및 결과 출력 ===
 print("\n🎯 균형 증강 대상:")
