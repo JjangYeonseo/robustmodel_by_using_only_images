@@ -6,28 +6,25 @@
 import os
 import json
 import csv
-import cv2
-import numpy as np
-import uuid
+import shutil
 from tqdm import tqdm
 from collections import defaultdict, Counter
-import albumentations as A
-import random
 import re
 from labelme2coco import convert
+from pathlib import Path
 
 # === 경로 설정 ===
-image_root = r"C:\Users\dadab\Desktop\Sample\01.원천데이터"
-label_root = r"C:\Users\dadab\Desktop\Sample\02.라벨링데이터"
-save_img_root = r"C:\Users\dadab\Desktop\Sample\augmented\images"
-save_label_root = r"C:\Users\dadab\Desktop\Sample\augmented\labels"
-combined_label_dir = r"C:\Users\dadab\Desktop\Sample\all_labels"
+original_img_dir = r"C:\Users\dadab\Desktop\Sample\01.원천데이터"
+augmented_img_dir = r"C:\Users\dadab\Desktop\Sample\augmented\images"
+label_dirs = [r"C:\Users\dadab\Desktop\Sample\02.라벨링데이터", r"C:\Users\dadab\Desktop\Sample\augmented\labels"]
+
+unified_img_dir = r"C:\Users\dadab\Desktop\Sample\unified_images"
+final_label_dir = r"C:\Users\dadab\Desktop\Sample\final_labels"
 coco_output_dir = r"C:\Users\dadab\Desktop\Sample\coco_output"
 csv_output_path = r"C:\Users\dadab\Desktop\Sample\weather_class_distribution.csv"
 
-os.makedirs(save_img_root, exist_ok=True)
-os.makedirs(save_label_root, exist_ok=True)
-os.makedirs(combined_label_dir, exist_ok=True)
+os.makedirs(unified_img_dir, exist_ok=True)
+os.makedirs(final_label_dir, exist_ok=True)
 os.makedirs(coco_output_dir, exist_ok=True)
 
 weather_codes = ['DD', 'DN', 'HD', 'ND', 'NN', 'NR', 'NS', 'RD', 'RN', 'SD']
@@ -35,93 +32,106 @@ weather_codes = ['DD', 'DN', 'HD', 'ND', 'NN', 'NR', 'NS', 'RD', 'RN', 'SD']
 # === 유틸: polygon 닫기 ===
 def close_polygon_if_needed(points):
     if len(points) < 3:
-        return points
+        return None
     if points[0] != points[-1]:
         points.append(points[0])
     return points
-
-# === 전처리 및 통합: 라벨 복사 + polygon 보정 ===
-def collect_and_fix_labels():
-    fixed = 0
-    for root_dir in [label_root, save_label_root]:
-        for root, _, files in os.walk(root_dir):
-            for file in files:
-                if not file.endswith(".json"):
-                    continue
-                src_path = os.path.join(root, file)
-                dst_path = os.path.join(combined_label_dir, file)
-
-                with open(src_path, 'r', encoding='utf-8') as f:
-                    try:
-                        data = json.load(f)
-                    except:
-                        continue
-
-                modified = False
-                new_shapes = []
-                for shape in data.get("shapes", []):
-                    if shape.get("shape_type") == "polygon":
-                        pts = shape["points"]
-                        if len(pts) < 3:
-                            continue  # 유효하지 않은 polygon 제거
-                        shape["points"] = close_polygon_if_needed(pts.copy())
-                        modified = True
-                    new_shapes.append(shape)
-
-                data["shapes"] = new_shapes
-
-                with open(dst_path, 'w', encoding='utf-8') as out_f:
-                    json.dump(data, out_f, ensure_ascii=False, indent=4)
-                if modified:
-                    fixed += 1
-    print(f"\n✅ 총 라벨 파일 복사 완료 및 polygon 보정: {fixed}개 수정됨")
-
-# === 변환 수행 ===
-def convert_to_coco():
-    print("\n🚀 Labelme → COCO 포맷 변환 중...")
-    convert(combined_label_dir, coco_output_dir)
-    print("✅ COCO 변환 완료!")
-
-# === 날씨 조건별 클래스 분포 분석 및 저장 ===
-def analyze_weather_class_distribution():
-    weather_class_counter = defaultdict(Counter)
-    label_dirs = [label_root, save_label_root]
-
-    for label_path in label_dirs:
-        for root, _, files in os.walk(label_path):
-            for file in files:
-                if not file.endswith(".json"):
-                    continue
-                with open(os.path.join(root, file), 'r', encoding='utf-8') as f:
-                    data = json.load(f)
-                    labels = [s["label"] for s in data.get("shapes", [])]
-                    weather = data.get("weather_from") or extract_weather_code(data.get("imagePath", file))
-                    if weather in weather_codes:
-                        weather_class_counter[weather].update(labels)
-
-    print("\n🌦️ 날씨 조건별 클래스 분포:")
-    for weather in sorted(weather_class_counter):
-        print(f"☁️ {weather}:")
-        for cls, count in weather_class_counter[weather].most_common():
-            print(f"  {cls:15s}: {count}")
-        print()
-
-    with open(csv_output_path, mode='w', newline='', encoding='utf-8-sig') as f:
-        writer = csv.writer(f)
-        all_classes = sorted({cls for counter in weather_class_counter.values() for cls in counter})
-        writer.writerow(["Weather"] + all_classes)
-        for weather in sorted(weather_class_counter):
-            row = [weather] + [weather_class_counter[weather].get(cls, 0) for cls in all_classes]
-            writer.writerow(row)
-    print(f"\n📁 CSV 저장 완료: {csv_output_path}")
 
 # === 날씨 코드 추출 ===
 def extract_weather_code(file_name):
     match = re.search(r'_(DD|DN|HD|ND|NN|NR|NS|RD|RN|SD)_', file_name)
     return match.group(1) if match else None
 
-# === 실행 ===
-if __name__ == '__main__':
-    collect_and_fix_labels()
-    convert_to_coco()
-    analyze_weather_class_distribution()
+# === 라벨 통합 및 이미지 복사 ===
+copied, fixed, skipped = 0, 0, 0
+
+for label_root in label_dirs:
+    for root, _, files in os.walk(label_root):
+        for file in files:
+            if not file.endswith(".json"):
+                continue
+
+            label_path = os.path.join(root, file)
+            with open(label_path, 'r', encoding='utf-8') as f:
+                try:
+                    data = json.load(f)
+                except:
+                    continue
+
+            img_name = data.get("imagePath")
+            if not img_name:
+                skipped += 1
+                continue
+
+            # 이미지 탐색 (원본/증강 포함)
+            candidates = list(Path(original_img_dir).rglob(img_name)) + list(Path(augmented_img_dir).rglob(img_name))
+            if not candidates:
+                skipped += 1
+                continue
+
+            img_path = str(candidates[0])
+            shutil.copy2(img_path, os.path.join(unified_img_dir, img_name))
+            data["imagePath"] = img_name  # 경로 정리
+
+            modified = False
+            valid_shapes = []
+            for shape in data.get("shapes", []):
+                if shape.get("shape_type") != "polygon":
+                    continue
+                pts = shape["points"]
+                closed = close_polygon_if_needed(pts.copy())
+                if not closed:
+                    continue  # 잘못된 polygon 제거
+                shape["points"] = closed
+                valid_shapes.append(shape)
+                modified = True
+
+            data["shapes"] = valid_shapes
+
+            with open(os.path.join(final_label_dir, file), 'w', encoding='utf-8') as out_f:
+                json.dump(data, out_f, ensure_ascii=False, indent=4)
+
+            if modified:
+                fixed += 1
+            copied += 1
+
+print(f"\n✅ 총 이미지 복사 완료: {copied}개")
+print(f"✅ polygon 보정된 라벨: {fixed}개")
+print(f"⚠️ 스킵된 항목: {skipped}개")
+
+# === COCO 변환 ===
+print("\n🚀 Labelme → COCO 포맷 변환 중...")
+convert(final_label_dir, coco_output_dir)
+print("✅ COCO 변환 완료!")
+
+# === 날씨 조건별 클래스 분포 분석 및 CSV 저장 ===
+print("\n📊 날씨 조건별 클래스 분포 분석 중...")
+weather_class_counter = defaultdict(Counter)
+
+for root, _, files in os.walk(final_label_dir):
+    for file in files:
+        if not file.endswith(".json"):
+            continue
+        with open(os.path.join(root, file), 'r', encoding='utf-8') as f:
+            data = json.load(f)
+            labels = [s["label"] for s in data.get("shapes", [])]
+            weather = data.get("weather_from") or extract_weather_code(data.get("imagePath", file))
+            if weather:
+                weather_class_counter[weather].update(labels)
+
+for weather in sorted(weather_class_counter):
+    print(f"☁️ {weather}:")
+    for cls, count in weather_class_counter[weather].most_common():
+        print(f"  {cls:15s}: {count}")
+    print()
+
+# === CSV 저장 ===
+with open(csv_output_path, mode='w', newline='', encoding='utf-8-sig') as f:
+    writer = csv.writer(f)
+    all_classes = sorted({cls for c in weather_class_counter.values() for cls in c})
+    writer.writerow(["Weather"] + all_classes)
+    for weather in sorted(weather_class_counter):
+        row = [weather] + [weather_class_counter[weather].get(cls, 0) for cls in all_classes]
+        writer.writerow(row)
+
+print(f"\n📁 CSV 저장 완료: {csv_output_path}")
