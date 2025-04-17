@@ -4,8 +4,22 @@
 
 ## ✅ 원본 데이터
 
-- **날씨 조건 목록**:  
-  `['DD', 'DN', 'HD', 'ND', 'NN', 'NR', 'NS', 'RD', 'RN', 'SD']`
+- **날씨 조건 목록**:
+- 
+### ✅ 날씨 조건 약어 설명
+
+| 약어 | 의미 (Weather Condition)        |
+|------|----------------------------------|
+| DD   | Daytime – Clear                 |
+| DN   | Daytime – Night Transition      |
+| HD   | Hazy Day                        |
+| ND   | Night – Dry                     |
+| NN   | Night – No Light / Dark         |
+| NR   | Night – Rainy                   |
+| NS   | Night – Snowy                   |
+| RD   | Rainy Day                       |
+| RN   | Rain – Night                    |
+| SD   | Snowy Day                       |
 
 - **클래스 목록 및 빈도수:**
 
